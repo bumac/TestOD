@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.37311953, g: 0.38074014, b: 0.3587274, a: 1}
+  m_IndirectSpecularColor: {r: 0.3708985, g: 0.3783704, b: 0.35722548, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -608,10 +608,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   labelsFile: {fileID: 4900000, guid: 16b3ec916998a8a4f9d92a2c9b0272e3, type: 3}
-  onnxModelFile: {fileID: 4900000, guid: 94a76c99f0f06be40a1d0624192591a1, type: 3}
-  natmlModelFile: {fileID: 8538825877217656561, guid: f31d961e89410344da56cd250a961d5f,
+  onnxModelFile: {fileID: 5452185270786297911, guid: 71a963391947bbd4e879a674137b2b9e,
     type: 3}
-  usedLibrary: 2
+  usedLibrary: 1
   lastInferenceTime: 0
   lastFrameProcessTime: 0
   lastDetectedObjects: 0

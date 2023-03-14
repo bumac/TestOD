@@ -208,8 +208,16 @@ public class PhoneCamera : MonoBehaviour
 
     private static Color32[] Rotate(Color32[] pixels, int width, int height)
     {
-        return TextureTools.RotateImageMatrix(
-                pixels, width, height, -90);
+        Color32[] output_pixels = new Color32[pixels.Length];
+        
+        for (var j = 0; j < height; j++){
+            for (var i = 0; i < width; i++)
+            {
+                output_pixels[j * width + i] = pixels[i * height + j];
+            }
+        }
+
+        return output_pixels;
     }
 
     private Task<Texture2D> RotateAsync(Texture2D texture)

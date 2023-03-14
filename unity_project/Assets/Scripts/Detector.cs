@@ -3,25 +3,23 @@ using UnityEngine;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using NatML;
-using NatML.Features;
-using NatML.Internal;
-using NatML.Types;
+using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
+using Core;
+
 
 public enum Library
 {
-    NatML = 1,
-    Onnx = 2
+    OnnxCSharp = 1,
+    Onnx = 2,
 }
 
 public class Detector : MonoBehaviour
 {
     public TextAsset labelsFile;
-    public TextAsset onnxModelFile;
-    public MLModelData natmlModelFile;
+    public OnnxModelData onnxModelFile;
 
-    public Library usedLibrary = Library.Onnx;
+    public Library usedLibrary = Library.OnnxCSharp;
     
     public double lastInferenceTime = 0.0f;
     public double lastFrameProcessTime = 0.0f;
@@ -31,7 +29,7 @@ public class Detector : MonoBehaviour
     public const int ImageSize = 640;
     
     private AndroidJavaObject _onnxModel;
-    private MLEdgeModel _natmlModel;
+    private InferenceSession _onnxCSharpModel;
 
     private string[] _labels;
     
@@ -39,8 +37,13 @@ public class Detector : MonoBehaviour
     {
         _labels = Regex.Split(labelsFile.text, "\n|\r|\r\n")
             .Where(s => !String.IsNullOrEmpty(s)).ToArray();
-        
-        if (usedLibrary == Library.Onnx) 
+
+        if (usedLibrary == Library.OnnxCSharp)
+        {
+            // Должно работать на всех платформах
+            _onnxCSharpModel = new InferenceSession(onnxModelFile.bytes);
+        }
+        else if (usedLibrary == Library.Onnx) 
         {
             /* Только Android, модели формата .onnx */
             var pluginClass = new AndroidJavaClass("com.unity.onnxwrapper.OnnxWrapper");
@@ -49,21 +52,8 @@ public class Detector : MonoBehaviour
             _onnxModel.Call("init");
             _onnxModel.Call<long>("createSession", onnxModelFile.bytes);
         }
-        else if(usedLibrary == Library.NatML) 
-        {
-            /* Работает на всех платформах, но для каждой платформы свой формат моделей
-             на ПК .onnx, на Android .tflite, на IOS .mlmodel */
-            
-            /* Мне кажется таким образом не совсем правильно делать, так как если модель не загружается из-за какой-либо
-             ошибки, то вызов этой функции зависает на бесконечное время */
-            _natmlModel = CreateNatMLModel(natmlModelFile).Result;
-        }
     }
 
-    private async Task<MLEdgeModel> CreateNatMLModel(MLModelData data)
-    {
-        return await MLEdgeModel.Create(data);
-    }
     public IList<BoundingBox> Detect(Color32[] picture)
     {
         var startTime0 = DateTime.UtcNow;
@@ -72,7 +62,58 @@ public class Detector : MonoBehaviour
         var tensorData = TransformInput(picture, ImageSize, ImageSize);
 
         var boxes = new List<BoundingBox>();
-        if (usedLibrary == Library.Onnx)
+        if (usedLibrary == Library.OnnxCSharp)
+        {
+            var inputTensor = new DenseTensor<float>(tensorData, new int[] { 1, 3, 640, 640 });
+            var input = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor<float>("images", inputTensor) };
+            
+            var startTime1 = DateTime.UtcNow;
+            var output = _onnxCSharpModel.Run(input).ToArray();
+            lastInferenceTime = (DateTime.UtcNow - startTime1).TotalSeconds;
+            
+            var result = output[0].AsEnumerable<float>().ToArray();
+            var objects = result.Length / 84;
+            
+            for (var i = 0; i < objects; i++)
+            {
+                var start = i * 84;
+                var x = result[start];
+                var y = result[start + 1];
+                var w = result[start + 2];
+                var h = result[start + 3];
+
+                x -= w / 2.0f;
+                y -= h / 2.0f;
+
+                var classId = 0;
+                var classScore = 0.0f;
+                for (var j = 0; j < 80; j++)
+                {
+                    if (result[start + 4 + j] > classScore)
+                    {
+                        classId = j;
+                        classScore = result[start + 4 + j];
+                    }
+                }
+                
+                boxes.Add(new BoundingBox
+                {
+                    Dimensions = new BoundingBoxDimensions
+                    {
+                        X = x,
+                        Y = y,
+                        Width = w,
+                        Height = h,
+                    },
+                    Confidence = classScore,
+                    Label = _labels[classId]
+                });
+            }
+
+            meanInferenceTime = 0.95 * meanInferenceTime + 0.05 * lastInferenceTime;
+            lastFrameProcessTime = (DateTime.UtcNow - startTime0).TotalSeconds;
+        }
+        else if (usedLibrary == Library.Onnx)
         {
             var shape = new long[] { 1, 3, 640, 640 };
             AndroidJavaObject objects = _onnxModel.Call<AndroidJavaObject>(
@@ -107,62 +148,6 @@ public class Detector : MonoBehaviour
             meanInferenceTime = 0.95 * meanInferenceTime + 0.05 * lastInferenceTime;
             lastFrameProcessTime = (System.DateTime.UtcNow - startTime0).TotalSeconds;
         }
-        else if(usedLibrary == Library.NatML)
-        {
-
-            var input = new MLArrayFeature<float>(
-                tensorData, new MLArrayType(new int[] { 1, 3, 640, 640 }, typeof(float), "images")
-                );
-
-            MLFeatureType inputType = _natmlModel.inputs[0];
-            using MLEdgeFeature edgeFeature = (input as IMLEdgeFeature).Create(inputType);
-            
-            var startTime1 = DateTime.UtcNow;
-            using var output = _natmlModel.Predict(
-                (input as IMLEdgeFeature).Create(_natmlModel.inputs[0])
-                );
-            var result = new MLArrayFeature<float>(output[0]);
-            lastInferenceTime = (DateTime.UtcNow - startTime1).TotalSeconds;
-        
-            for (var i = 0; i < result.shape[2]; i++)
-            {
-                var start = i * result.shape[3];
-                var x = result[start];
-                var y = result[start + 1];
-                var w = result[start + 2];
-                var h = result[start + 3];
-
-                x -= w / 2.0f;
-                y -= h / 2.0f;
-
-                var classId = 0;
-                var classScore = 0.0f;
-                for (var j = 0; j < 80; j++)
-                {
-                    if (result[start + 4 + j] > classScore)
-                    {
-                        classId = j;
-                        classScore = result[start + 4 + j];
-                    }
-                }
-                
-                boxes.Add(new BoundingBox
-                {
-                    Dimensions = new BoundingBoxDimensions
-                    {
-                        X = x,
-                        Y = y,
-                        Width = w,
-                        Height = h,
-                    },
-                    Confidence = classScore,
-                    Label = _labels[classId]
-                });
-            }
-            meanInferenceTime = 0.95 * meanInferenceTime + 0.05 * lastInferenceTime;
-            lastFrameProcessTime = (DateTime.UtcNow - startTime0).TotalSeconds;
-        }
-
         return boxes;
     }
 
