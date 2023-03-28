@@ -54,7 +54,7 @@ public class PhoneCamera : MonoBehaviour
             }
         };
 
-        CalculateShift(Detector.ImageSize);
+        CalculateShift(detector.imageSizeW, detector.imageSizeH);
 
         StartCoroutine(CameraCheck());
         
@@ -108,22 +108,20 @@ public class PhoneCamera : MonoBehaviour
     }
 
 
-    private void CalculateShift(int inputSize)
+    private void CalculateShift(int inputSizeW, int inputSizeH)
     {
-        int smallest;
-
+        var smallest = Screen.width < Screen.height ? Screen.width : Screen.height;
+        var smallestInputSize = inputSizeW < inputSizeH ? inputSizeW : inputSizeH;
+        scaleFactor = smallest / (float)smallestInputSize;
+        
         if (Screen.width < Screen.height)
         {
-            smallest = Screen.width;
-            shiftY = (Screen.height - smallest) / 2f;
+            shiftY = (Screen.height - inputSizeH * scaleFactor) / 2f;
         }
         else
         {
-            smallest = Screen.height;
-            shiftX = (Screen.width - smallest) / 2f;
+            shiftX = (Screen.width - inputSizeW * scaleFactor) / 2f;
         }
-
-        scaleFactor = smallest / (float)inputSize;
     }
 
 
@@ -136,7 +134,7 @@ public class PhoneCamera : MonoBehaviour
 
         isWorking = true;
         
-        StartCoroutine(ProcessImage(Detector.ImageSize, result =>
+        StartCoroutine(ProcessImage(detector.imageSizeW, detector.imageSizeH, result =>
         {
             var boxes = detector.Detect(result);
             uiText.text = string.Format("{0:0.000} | {1:0.000} | {2} | {3:0.000}", 
@@ -150,12 +148,12 @@ public class PhoneCamera : MonoBehaviour
     }
 
 
-    private IEnumerator ProcessImage(int inputSize, Action<Color32[]> callback)
+    private IEnumerator ProcessImage(int inputSizeW, int inputSizeH, Action<Color32[]> callback)
     {
         yield return StartCoroutine(TextureTools.CropSquare(backCamera,
             TextureTools.RectOptions.Center, snap =>
             {
-                var scaled = Scale(snap, inputSize);
+                var scaled = Scale(snap, inputSizeH, inputSizeW);
                 var rotated = Rotate(scaled.GetPixels32(), scaled.width, scaled.height);
                 callback(rotated);
             }));
@@ -198,9 +196,9 @@ public class PhoneCamera : MonoBehaviour
     }
 
 
-    private static Texture2D Scale(Texture2D texture, int imageSize)
+    private static Texture2D Scale(Texture2D texture, int imageSizeW, int imageSizeH)
     {
-        var scaled = TextureTools.scaled(texture, imageSize, imageSize, FilterMode.Bilinear);
+        var scaled = TextureTools.scaled(texture, imageSizeW, imageSizeH, FilterMode.Bilinear);
 
         return scaled;
     }
@@ -210,10 +208,10 @@ public class PhoneCamera : MonoBehaviour
     {
         Color32[] output_pixels = new Color32[pixels.Length];
         
-        for (var j = 0; j < height; j++){
-            for (var i = 0; i < width; i++)
+        for (var y = 0; y < height; y++){
+            for (var x = 0; x < width; x++)
             {
-                output_pixels[j * width + i] = pixels[i * height + j];
+                output_pixels[x * height + y] = pixels[y * width + x];
             }
         }
 

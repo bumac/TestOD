@@ -608,10 +608,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   labelsFile: {fileID: 4900000, guid: 16b3ec916998a8a4f9d92a2c9b0272e3, type: 3}
-  onnxModelFile: {fileID: 5452185270786297911, guid: 71a963391947bbd4e879a674137b2b9e,
+  onnxModelFile: {fileID: 5452185270786297911, guid: 3cca48d95036a5b418075d38cda829a4,
     type: 3}
   usedLibrary: 1
   lastInferenceTime: 0
   lastFrameProcessTime: 0
   lastDetectedObjects: 0
   meanInferenceTime: 0
+  imageSizeW: 224
+  imageSizeH: 224

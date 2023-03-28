@@ -26,7 +26,8 @@ public class Detector : MonoBehaviour
     public long lastDetectedObjects = 0;
     public double meanInferenceTime = 0.0f;
     
-    public const int ImageSize = 640;
+    public int imageSizeW = 384;
+    public int imageSizeH = 480;
     
     private AndroidJavaObject _onnxModel;
     private InferenceSession _onnxCSharpModel;
@@ -40,8 +41,30 @@ public class Detector : MonoBehaviour
 
         if (usedLibrary == Library.OnnxCSharp)
         {
+            
+            /* XNNPACK -- Android/IOS (slow)
+            var options = new SessionOptions();
+            var paramsOptions = new Dictionary<string, string>()
+            {
+                { "intra_op_num_threads", "1" }
+            };
+            options.AppendExecutionProvider("XNNPACK", paramsOptions);*/
+            
+            
+            /* SNPE -- Qualcom (Not working for me)
+            var options = new SessionOptions();
+            var paramsOptions = new Dictionary<string, string>()
+            {
+                { "runtime", "CPU_FLOAT32" },
+                { "buffer_type", "FLOAT" },
+            };
+            options.AppendExecutionProvider("SNPE", paramsOptions);*/
+            
+            var options = new SessionOptions();
+            // options.EnableProfiling = true;
+            
             // Должно работать на всех платформах
-            _onnxCSharpModel = new InferenceSession(onnxModelFile.bytes);
+            _onnxCSharpModel = new InferenceSession(onnxModelFile.bytes, options);
         }
         else if (usedLibrary == Library.Onnx) 
         {
@@ -59,13 +82,18 @@ public class Detector : MonoBehaviour
         var startTime0 = DateTime.UtcNow;
         
         // Записываем изображение в одномерный массив:
-        var tensorData = TransformInput(picture, ImageSize, ImageSize);
+        var tensorData = TransformInput(picture, imageSizeW, imageSizeH);
 
         var boxes = new List<BoundingBox>();
         if (usedLibrary == Library.OnnxCSharp)
         {
-            var inputTensor = new DenseTensor<float>(tensorData, new int[] { 1, 3, 640, 640 });
-            var input = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor<float>("images", inputTensor) };
+            var inputTensor = new DenseTensor<float>(tensorData, new int[] { 1, 3, imageSizeH, imageSizeW });
+            var configTensor = new DenseTensor<float>(new float[] {100.0f, 0.7f, 0.2f}, new int[] { 3 });
+            var input = new List<NamedOnnxValue>
+            {
+                NamedOnnxValue.CreateFromTensor<float>("images", inputTensor),
+                NamedOnnxValue.CreateFromTensor<float>("config", configTensor)
+            };
             
             var startTime1 = DateTime.UtcNow;
             var output = _onnxCSharpModel.Run(input).ToArray();
@@ -115,7 +143,7 @@ public class Detector : MonoBehaviour
         }
         else if (usedLibrary == Library.Onnx)
         {
-            var shape = new long[] { 1, 3, 640, 640 };
+            var shape = new long[] { 1, 3, imageSizeW, imageSizeH };
             AndroidJavaObject objects = _onnxModel.Call<AndroidJavaObject>(
                 "propagateModel", "images", tensorData, shape
                 );
@@ -157,11 +185,11 @@ public class Detector : MonoBehaviour
 
         var stride = width * height;
         
-        for (var i = 0; i < width; ++i)
+        for (var i = 0; i < height; ++i)
         {
-            for (var j = 0; j < height; ++j)
+            for (var j = 0; j < width; ++j)
             {
-                var idx = height * i + j;
+                var idx = width * i + j;
                 var color = pic[idx];
                 floatValues[idx] = color.r /  255.0f;
                 floatValues[idx + stride] = color.g / 255.0f;
