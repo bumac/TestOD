@@ -40,14 +40,14 @@ namespace TFClassify
                 throw new System.ArgumentException("Invalid texture size");
             }
 
-            Texture2D result = new Texture2D((int)rect.width, (int)rect.height);
+            var result = new Texture2D((int)rect.width, (int)rect.height);
             
             if(rect.width != 0 && rect.height != 0)
             {
-                float xRect = rect.x;
-                float yRect = rect.y;
-                float widthRect = rect.width;
-                float heightRect = rect.height;
+                var xRect = rect.x;
+                var yRect = rect.y;
+                var widthRect = rect.width;
+                var heightRect = rect.height;
 
                 switch(rectOptions)
                 {
@@ -73,11 +73,13 @@ namespace TFClassify
                         break;
 
                     case RectOptions.Custom:
-                        float tempWidth = texture.width - rect.width;
-                        float tempHeight = texture.height - rect.height;
+                        var tempWidth = texture.width - rect.width;
+                        var tempHeight = texture.height - rect.height;
                         xRect = tempWidth > texture.width ? 0 : tempWidth;
                         yRect = tempHeight > texture.height ? 0 : tempHeight;
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(rectOptions), rectOptions, null);
                 }
 
                 if (texture.width < rect.x + rect.width || texture.height < rect.y + rect.height || 
@@ -106,57 +108,58 @@ namespace TFClassify
                 throw new System.ArgumentException("Invalid texture size");
             }
 
-            Texture2D result = new Texture2D((int)rect.width, (int)rect.height);
+            var result = new Texture2D((int)rect.width, (int)rect.height);
 
-            if(rect.width != 0 && rect.height != 0)
+            if (rect.width == 0 || rect.height == 0) return result;
+            
+            var xRect = rect.x;
+            var yRect = rect.y;
+            var widthRect = rect.width;
+            var heightRect = rect.height;
+
+            switch(rectOptions)
             {
-                float xRect = rect.x;
-                float yRect = rect.y;
-                float widthRect = rect.width;
-                float heightRect = rect.height;
+                case RectOptions.Center:
+                    xRect = (texture.width - rect.width) / 2;
+                    yRect = (texture.height - rect.height) / 2;
+                    break;
 
-                switch(rectOptions)
-                {
-                    case RectOptions.Center:
-                        xRect = (texture.width - rect.width) / 2;
-                        yRect = (texture.height - rect.height) / 2;
-                        break;
+                case RectOptions.BottomRight:
+                    xRect = texture.width - rect.width;
+                    break;
 
-                    case RectOptions.BottomRight:
-                        xRect = texture.width - rect.width;
-                        break;
+                case RectOptions.BottomLeft:
+                    break;
 
-                    case RectOptions.BottomLeft:
-                        break;
+                case RectOptions.TopLeft:
+                    yRect = texture.height - rect.height;
+                    break;
 
-                    case RectOptions.TopLeft:
-                        yRect = texture.height - rect.height;
-                        break;
+                case RectOptions.TopRight:
+                    xRect = texture.width - rect.width;
+                    yRect = texture.height - rect.height;
+                    break;
 
-                    case RectOptions.TopRight:
-                        xRect = texture.width - rect.width;
-                        yRect = texture.height - rect.height;
-                        break;
-
-                    case RectOptions.Custom:
-                        float tempWidth = texture.width - rect.width - xMod;
-                        float tempHeight = texture.height - rect.height - yMod;
-                        xRect = tempWidth > texture.width ? 0 : tempWidth;
-                        yRect = tempHeight > texture.height ? 0 : tempHeight;
-                        break;
-                }
-
-                if (texture.width < rect.x + rect.width || texture.height < rect.y + rect.height || 
-                    xRect > rect.x + texture.width || yRect > rect.y + texture.height || 
-                    xRect < 0 || yRect < 0 || rect.width < 0 || rect.height < 0)
-                {
-                    throw new System.ArgumentException("Set value crop less than origin texture size");
-                }
-
-                result.SetPixels(texture.GetPixels(Mathf.FloorToInt(xRect), Mathf.FloorToInt(yRect),
-                                                Mathf.FloorToInt(widthRect), Mathf.FloorToInt(heightRect)));
-                result.Apply();
+                case RectOptions.Custom:
+                    var tempWidth = texture.width - rect.width - xMod;
+                    var tempHeight = texture.height - rect.height - yMod;
+                    xRect = tempWidth > texture.width ? 0 : tempWidth;
+                    yRect = tempHeight > texture.height ? 0 : tempHeight;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(rectOptions), rectOptions, null);
             }
+
+            if (texture.width < rect.x + rect.width || texture.height < rect.y + rect.height || 
+                xRect > rect.x + texture.width || yRect > rect.y + texture.height || 
+                xRect < 0 || yRect < 0 || rect.width < 0 || rect.height < 0)
+            {
+                throw new System.ArgumentException("Set value crop less than origin texture size");
+            }
+
+            result.SetPixels(texture.GetPixels(Mathf.FloorToInt(xRect), Mathf.FloorToInt(yRect),
+                Mathf.FloorToInt(widthRect), Mathf.FloorToInt(heightRect)));
+            result.Apply();
 
             return result;
         }
@@ -171,11 +174,11 @@ namespace TFClassify
         /// <param name="mode">Filtering mode</param>
         public static Texture2D scaled(Texture2D src, int width, int height, FilterMode mode = FilterMode.Trilinear)
         {
-                Rect texR = new Rect(0,0,width,height);
+                var texR = new Rect(0,0,width,height);
                 _gpu_scale(src,width,height,mode);
                
                 //Get rendered data back to a new texture
-                Texture2D result = new Texture2D(width, height, TextureFormat.ARGB32, true);
+                var result = new Texture2D(width, height, TextureFormat.ARGB32, true);
                 result.Reinitialize(width, height);
                 result.ReadPixels(texR,0,0,true);
                 return result;                 
@@ -190,7 +193,7 @@ namespace TFClassify
         /// <param name="mode">Filtering mode</param>
         public static void scale(Texture2D tex, int width, int height, FilterMode mode = FilterMode.Trilinear)
         {
-                Rect texR = new Rect(0,0,width,height);
+                var texR = new Rect(0,0,width,height);
                 _gpu_scale(tex,width,height,mode);
                
                 // Update new texture
@@ -207,7 +210,7 @@ namespace TFClassify
                 src.Apply(true);       
                                
                 //Using RTT for best quality and performance. Thanks, Unity 5
-                RenderTexture rtt = new RenderTexture(width, height, 32);
+                var rtt = new RenderTexture(width, height, 32);
                
                 //Set the RTT in order to render to it
                 Graphics.SetRenderTarget(rtt);
@@ -234,15 +237,15 @@ namespace TFClassify
 
          public static Color32[] RotateImageMatrix(Color32[] matrix, int width, int height, int angle)
          {
-             Color32[] pix1 = new Color32[matrix.Length];
+             var pix1 = new Color32[matrix.Length];
              
-             int x = 0;
-             int y = 0;
+             var x = 0;
+             var y = 0;
 
-             Color32[] pix3 = rotateSquare(
+             var pix3 = rotateSquare(
                  matrix, width, height, (Math.PI/180*(double)angle));
 
-             for (int j = 0; j < height; j++){
+             for (var j = 0; j < height; j++){
                  for (var i = 0; i < width; i++) {
                      pix1[x + i + width*(j+y)] = pix3[i + j*width];
                  }
@@ -257,12 +260,12 @@ namespace TFClassify
              int y;
              int i;
              int j;
-             double sn = Math.Sin(phi);
-             double cs = Math.Cos(phi);
-             Color32[] arr2 = new Color32[arr.Length];
+             var sn = Math.Sin(phi);
+             var cs = Math.Cos(phi);
+             var arr2 = new Color32[arr.Length];
 
-             int xc = width/2;
-             int yc = height/2;
+             var xc = width/2;
+             var yc = height/2;
              
              for (j=0; j<height; j++){
                  for (i=0; i<width; i++){

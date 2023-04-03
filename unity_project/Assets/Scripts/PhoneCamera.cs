@@ -36,7 +36,12 @@ public class PhoneCamera : MonoBehaviour
 
     private void Start()
     {
+#if UNITY_EDITOR
+        WebCamDevice[] devices = WebCamTexture.devices;
+        backCamera = new WebCamTexture(devices[1].name);
+#else
         backCamera = new WebCamTexture();
+#endif
         background.texture = backCamera;
         backCamera.Play();
         camAvailable = true;
@@ -57,8 +62,6 @@ public class PhoneCamera : MonoBehaviour
         CalculateShift(detector.imageSizeW, detector.imageSizeH);
 
         StartCoroutine(CameraCheck());
-        
-        
     }
 
     // Clear screen:
@@ -67,7 +70,7 @@ public class PhoneCamera : MonoBehaviour
         GL.Clear(true, true, Color.black);
     }
     
-    private IEnumerator CameraCheck()
+    public IEnumerator CameraCheck()
     {
         while (true)
         {
@@ -93,7 +96,7 @@ public class PhoneCamera : MonoBehaviour
 
             Detect();
 
-            yield return new WaitForSeconds(1);
+            yield return null;
         }
     }
 
@@ -147,6 +150,11 @@ public class PhoneCamera : MonoBehaviour
         }));
     }
 
+    public void ResetCamera()
+    {
+        StopAllCoroutines();
+        isWorking = false;
+    }
 
     private IEnumerator ProcessImage(int inputSizeW, int inputSizeH, Action<Color32[]> callback)
     {
